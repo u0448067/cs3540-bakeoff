@@ -33,7 +33,7 @@ public class BakeOff1 extends PApplet {
 
 	// ===================== FITTS DATA COLLECTION =====================
 
-	// >>> Nick = 1, Danny = 2, Henderson = 3 <<<
+	// >>> CHANGE THIS for each team member (1 through 4) <<<
 	final int PARTICIPANT_ID = 1;
 
 	// Target sizes in pixels. The size changes on every click and cycles through this list
@@ -51,6 +51,14 @@ public class BakeOff1 extends PApplet {
 	PrintWriter logFile; // the CSV file written next to your project's src folder
 	int lastClickX, lastClickY; // cursor position at the START of the current trial
 	int lastClickTime; // millis() at the start of the current trial
+
+	/** True if any button appears twice in a row in the trial list. */
+	boolean hasBackToBack(ArrayList<Integer> list) {
+		for (int i = 1; i < list.size(); i++)
+			if (list.get(i).equals(list.get(i - 1))) // .equals, not ==, for Integer objects
+				return true;
+		return false;
+	}
 
 	/** Target width for the given trial (systematic, the same for everyone). */
 	int sizeForTrial(int t) {
@@ -189,9 +197,21 @@ public class BakeOff1 extends PApplet {
 		Collections.shuffle(trials); // randomize the order of the buttons
 		System.out.println("trial order: " + trials); // print out order for reference
 
+		// ===== FITTS: no back-to-back repeats =====
+		// A target that repeats has distance ~0, so it measures reaction time, not movement.
+		// Reshuffle until no button appears twice in a row. Every button still appears exactly
+		// numRepeats times, and every valid order is equally likely. This usually takes a few
+		// thousand shuffles, which runs in a few milliseconds.
+		int shuffles = 1;
+		while (hasBackToBack(trials)) {
+			Collections.shuffle(trials);
+			shuffles++;
+		}
+		System.out.println("no-repeat trial order (" + shuffles + " shuffles): " + trials);
+
 		// ===== FITTS: open a CSV file for this run =====
 		// The file name includes the participant and the date and time, so re-runs never overwrite.
-		String fileName = "fitts_results" + PARTICIPANT_ID + "_" + year() + nf(month(), 2) + nf(day(), 2) + "_"
+		String fileName = "fitts_P" + PARTICIPANT_ID + "_" + year() + nf(month(), 2) + nf(day(), 2) + "_"
 				+ nf(hour(), 2) + nf(minute(), 2) + nf(second(), 2) + ".csv";
 		logFile = createWriter(fileName);
 		String header = "trial,participant,startX,startY,targetX,targetY,width,time,hit";
@@ -276,6 +296,13 @@ public class BakeOff1 extends PApplet {
 			return;
 		}
 
+		if (trialNum == trials.size() - 1) // check if final click
+		{
+			finishTime = millis();
+			// write to terminal some output:
+			System.out.println("we're all done!");
+		}
+
 		Rectangle bounds = getButtonLocation(trials.get(trialNum));
 
 		// check to see if cursor was inside button
@@ -304,13 +331,6 @@ public class BakeOff1 extends PApplet {
 			logFile.println(row);
 			logFile.flush(); // write immediately, so a crash or early quit doesn't lose data
 			System.out.println(row);
-		}
-		
-		if (trialNum == trials.size() - 1) // check if final click
-		{
-			finishTime = millis();
-			// write to terminal some output:
-			System.out.println("we're all done!");
 		}
 
 		// this click is where the next trial starts
